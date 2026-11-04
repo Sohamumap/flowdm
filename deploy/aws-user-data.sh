@@ -16,7 +16,7 @@ ADMIN_EMAIL="you@example.com"               # your dashboard login
 ADMIN_PASSWORD="choose-a-password"          # 8+ characters, no quotes; change it later in Settings
 # =======================================================================
 
-REPO_URL="https://github.com/Sohamumap/ManyChat_Clone.git"
+REPO_URL="https://github.com/Sohamumap/flowdm.git"
 APP_DIR="/opt/flowdm"
 
 set -euo pipefail

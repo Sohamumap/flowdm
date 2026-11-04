@@ -136,7 +136,7 @@ When new code is pushed to GitHub:
 Launch the same instance *without* User data, then on the server:
 
 ```bash
-git clone https://github.com/Sohamumap/ManyChat_Clone.git flowdm && cd flowdm
+git clone https://github.com/Sohamumap/flowdm.git flowdm && cd flowdm
 sudo ./deploy/setup-ec2.sh                 # swap, Docker, security updates; then log out and in
 ./deploy/init-env.sh mybrandbot.duckdns.org you@example.com   # prints your dashboard password
 nano .env                                   # optional: DUCKDNS_TOKEN for automatic IP updates

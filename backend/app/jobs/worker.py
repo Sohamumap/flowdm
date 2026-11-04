@@ -16,9 +16,10 @@ from typing import Any
 import httpx
 from sqlalchemy import delete, select
 
+from app import alerts
 from app.config import get_settings
 from app.db import SessionLocal
-from app.engine import handlers
+from app.engine import handlers, next_post
 from app.engine.runner import EngineContext
 from app.instagram.client import InstagramAPIError, refresh_long_lived_token
 from app.instagram.events import parse_webhook
@@ -102,6 +103,7 @@ JOB_HANDLERS = {
     "webhook": process_webhook,
     "resume_run": process_resume_run,
     "public_reply": process_public_reply,
+    "email_alert": alerts.process_email_alert,
 }
 
 
@@ -158,6 +160,15 @@ async def refresh_tokens() -> None:
             except (InstagramAPIError, ValueError, httpx.HTTPError) as exc:
                 account.last_error = f"Token refresh failed: {exc}"
                 log.warning("Token refresh failed for @%s: %s", account.username, exc)
+                await alerts.queue_alert(
+                    session,
+                    f"token_refresh:{account.id}:{now.date().isoformat()}",
+                    f"Instagram access for @{account.username} could not be renewed",
+                    f"FlowDM could not renew the Instagram access token for @{account.username}. "
+                    "If it expires, comments stop getting DMs.\n\n"
+                    f"Error: {exc}\n\n"
+                    f"Reconnect the account under Settings: {alerts.dashboard_url('/accounts')}",
+                )
                 continue
             account.access_token_enc = encrypt_secret(data["access_token"])
             account.token_expires_at = now + timedelta(seconds=int(data.get("expires_in", 5184000)))
@@ -181,6 +192,27 @@ async def maintenance() -> None:
         await refresh_tokens()
     except Exception:
         log.exception("Token refresh pass crashed")
+
+
+async def check_new_posts() -> None:
+    """Link automations waiting for the next post, for every connected account."""
+    async with SessionLocal() as session:
+        account_ids = list(
+            await session.scalars(select(IGAccount.id).where(IGAccount.is_active.is_(True)))
+        )
+    for account_id in account_ids:
+        async with SessionLocal() as session:
+            account = await session.get(IGAccount, account_id)
+            if account is None:
+                continue
+            username = account.username  # read now: a rollback expires the object
+            ctx = await _account_context(session, account)
+            try:
+                await next_post.check_new_posts(ctx)
+                await session.commit()
+            except (InstagramAPIError, httpx.HTTPError) as exc:
+                await session.rollback()
+                log.warning("Checking new posts of @%s failed: %s", username, exc)
 
 
 async def schema_ready() -> bool:
@@ -214,6 +246,7 @@ async def main() -> None:
 
     log.info("Worker started")
     next_maintenance = 0.0
+    next_post_check = 0.0
     while not stop.is_set():
         if time.monotonic() >= next_maintenance:
             try:
@@ -222,6 +255,12 @@ async def main() -> None:
             except Exception:
                 log.exception("Maintenance failed")
                 next_maintenance = time.monotonic() + 60
+        if time.monotonic() >= next_post_check:
+            next_post_check = time.monotonic() + settings.next_post_check_seconds
+            try:
+                await check_new_posts()
+            except Exception:
+                log.exception("New post check failed")
         try:
             processed = await run_due_jobs()
         except Exception:

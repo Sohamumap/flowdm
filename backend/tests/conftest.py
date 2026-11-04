@@ -35,6 +35,9 @@ class FakeInstagram:
         self.profiles: dict[str, dict[str, Any]] = {}
         self.send_errors: list[InstagramAPIError] = []
         self.profile_error: InstagramAPIError | None = None
+        # Newest first, like the real /media listing
+        self.media: list[dict[str, Any]] = []
+        self.media_calls = 0
         self._counter = 0
 
     async def send_message(self, recipient: dict[str, str], message: dict[str, Any]) -> dict:
@@ -52,6 +55,17 @@ class FakeInstagram:
         if self.profile_error:
             raise self.profile_error
         return self.profiles.get(igsid, {"username": f"user_{igsid}", "name": "Test User"})
+
+    async def get_media(self, media_id: str) -> dict:
+        self.media_calls += 1
+        for media in self.media:
+            if media["id"] == media_id:
+                return media
+        raise api_error(100, status=404, message="Unsupported get request")
+
+    async def list_media(self, limit: int = 24, after: str | None = None) -> dict:
+        self.media_calls += 1
+        return {"data": self.media[:limit]}
 
     # helpers
     def texts(self) -> list[str]:

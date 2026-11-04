@@ -33,6 +33,24 @@ export interface InstagramAppSettingsIn {
   meta_app_secret?: string | null
 }
 
+export interface EmailSettings {
+  alert_email_to: string
+  smtp_host: string
+  smtp_port: number
+  smtp_username: string
+  smtp_password_set: boolean
+  configured: boolean
+}
+
+/** Omit/null = keep, "" = clear. */
+export interface EmailSettingsIn {
+  alert_email_to?: string | null
+  smtp_host?: string | null
+  smtp_port?: string | null
+  smtp_username?: string | null
+  smtp_password?: string | null
+}
+
 // ------------------------------------------------------------------ accounts
 
 export interface Account {
@@ -78,6 +96,10 @@ export interface CommentTrigger {
   public_replies: string[]
   once_per_user: boolean
   top_level_only: boolean
+  /** With no media_ids: wait for the next post whose caption has this word, then link to it */
+  next_post_word?: string
+  /** Set by the server when the wait starts */
+  waiting_since?: string | null
 }
 
 export interface DMKeywordTrigger {

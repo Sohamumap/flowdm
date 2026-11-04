@@ -6,6 +6,8 @@ import type {
   AutomationStats,
   CommentEvent,
   Contact,
+  EmailSettings,
+  EmailSettingsIn,
   InstagramAppSettings,
   InstagramAppSettingsIn,
   FailedJob,
@@ -159,6 +161,9 @@ export const api = {
   settings: {
     instagramApp: () => get<InstagramAppSettings>('/api/settings/instagram'),
     updateInstagramApp: (body: InstagramAppSettingsIn) => put<InstagramAppSettings>('/api/settings/instagram', body),
+    email: () => get<EmailSettings>('/api/settings/email'),
+    updateEmail: (body: EmailSettingsIn) => put<EmailSettings>('/api/settings/email', body),
+    testEmail: () => post<{ sent_to: string }>('/api/settings/email/test'),
   },
 
   accounts: {

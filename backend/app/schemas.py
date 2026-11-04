@@ -1,6 +1,6 @@
 """Pydantic models for automations (trigger + flow) and API payloads."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -29,14 +29,30 @@ class CommentTrigger(BaseModel):
     once_per_user: bool = True
     # Ignore replies to other comments (only top-level comments trigger)
     top_level_only: bool = False
+    # Wait for the next post: with no media_ids, the automation stays idle until a post whose
+    # caption contains this word goes live after waiting_since, then links itself to that post.
+    # Instagram only gives a scheduled post its id once it is live, so it can't be picked earlier.
+    next_post_word: str = ""
+    waiting_since: datetime | None = None
 
     @model_validator(mode="after")
     def _check(self) -> "CommentTrigger":
         self.keywords = [k.strip() for k in self.keywords if k.strip()]
         self.public_replies = [r.strip() for r in self.public_replies if r.strip()]
+        self.next_post_word = self.next_post_word.strip()
         if self.match != "any" and not self.keywords:
             raise ValueError("Add at least one keyword, or set match to 'any'")
+        if self.media_ids:
+            self.next_post_word = ""
+        if not self.next_post_word:
+            self.waiting_since = None
+        elif self.waiting_since is None:
+            self.waiting_since = datetime.now(UTC)
         return self
+
+    @property
+    def waiting_for_post(self) -> bool:
+        return bool(self.next_post_word) and not self.media_ids
 
 
 class DMKeywordTrigger(BaseModel):

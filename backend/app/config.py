@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     worker_batch_size: int = 10
     job_max_attempts: int = 5
     webhook_event_retention_days: int = 14
+    # How often to look for the post an automation is waiting for
+    next_post_check_seconds: float = 120
 
     @property
     def is_production(self) -> bool:

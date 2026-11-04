@@ -4,6 +4,7 @@ import {
   ExternalLink,
   KeyRound,
   Lock,
+  Mail,
   Power,
   RefreshCw,
   Trash2,
@@ -63,6 +64,7 @@ export default function AccountsPage() {
         <AccountList />
         <WebhookSetup config={config.data} error={config.error} loading={config.loading} onRetry={() => void config.reload()} />
         <InstagramAppCard onSaved={() => void config.reload()} />
+        <EmailAlertsCard />
         <ConnectCard config={config.data} configLoading={config.loading} />
         <ChangePassword />
       </div>
@@ -521,6 +523,164 @@ function InstagramAppCard({ onSaved }: { onSaved: () => void }) {
             <div>
               <Button type="submit" variant="primary" loading={saving} disabled={!dirty}>
                 Save
+              </Button>
+            </div>
+          </form>
+        )}
+      </CardBody>
+    </Card>
+  )
+}
+
+// ------------------------------------------------------------------ email alerts
+
+function EmailAlertsCard() {
+  const toast = useToast()
+  const current = useAsync(() => api.settings.email(), [])
+  const [sender, setSender] = useState<string | null>(null)
+  const [password, setPassword] = useState('')
+  const [to, setTo] = useState<string | null>(null)
+  const [host, setHost] = useState<string | null>(null)
+  const [port, setPort] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [testing, setTesting] = useState(false)
+
+  const data = current.data
+  const senderValue = sender ?? data?.smtp_username ?? ''
+  const toValue = to ?? (data && data.alert_email_to !== data.smtp_username ? data.alert_email_to : '')
+  const hostValue = host ?? data?.smtp_host ?? ''
+  const portValue = port ?? (data ? String(data.smtp_port) : '')
+  const dirty = sender !== null || to !== null || host !== null || port !== null || password !== ''
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setSaving(true)
+    try {
+      await api.settings.updateEmail({
+        smtp_username: sender === null ? null : sender.trim(),
+        smtp_password: password.trim() || null,
+        alert_email_to: to === null ? null : to.trim(),
+        smtp_host: host === null ? null : host.trim(),
+        smtp_port: port === null ? null : port.trim(),
+      })
+      setSender(null)
+      setPassword('')
+      setTo(null)
+      setHost(null)
+      setPort(null)
+      await current.reload()
+      toast.success('Email alerts saved')
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const sendTest = async () => {
+    setError(null)
+    setTesting(true)
+    try {
+      const result = await api.settings.testEmail()
+      toast.success(`Test email sent to ${result.sent_to}`)
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        icon={<Mail className="size-4" />}
+        title="Email alerts"
+        description="FlowDM emails you when a DM fails, a new post goes live without its automation, or Instagram access can't be renewed."
+        actions={
+          data &&
+          (data.configured ? (
+            <Badge tone="green" dot>
+              On
+            </Badge>
+          ) : (
+            <Badge tone="amber" dot>
+              Off
+            </Badge>
+          ))
+        }
+      />
+      <CardBody>
+        {current.loading ? (
+          <LoadingBlock className="py-6" />
+        ) : current.error ? (
+          <ErrorNotice error={current.error} onRetry={() => void current.reload()} />
+        ) : (
+          <form onSubmit={submit} className="grid max-w-xl gap-4">
+            {error && <Notice tone="error">{error}</Notice>}
+            <Field label="Gmail address that sends the alerts" htmlFor="smtp-user">
+              <input
+                id="smtp-user"
+                type="email"
+                autoComplete="off"
+                value={senderValue}
+                onChange={(e) => setSender(e.target.value)}
+                className="input"
+              />
+            </Field>
+            <Field
+              label="App password"
+              htmlFor="smtp-password"
+              hint={
+                data?.smtp_password_set
+                  ? 'Saved. Leave empty to keep it, or paste a new one to replace it.'
+                  : 'Google Account → Security → 2-Step Verification → App passwords. Create one called FlowDM and paste the 16 letters. Your normal Gmail password won’t work here.'
+              }
+            >
+              <input
+                id="smtp-password"
+                type="password"
+                autoComplete="off"
+                placeholder={data?.smtp_password_set ? '••••••••••••' : ''}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="input font-mono"
+              />
+            </Field>
+            <Field label="Send alerts to" htmlFor="alert-to" optional hint="Leave empty to send them to the address above.">
+              <input
+                id="alert-to"
+                type="email"
+                autoComplete="off"
+                value={toValue}
+                onChange={(e) => setTo(e.target.value)}
+                className="input"
+              />
+            </Field>
+            <details className="text-sm text-slate-600">
+              <summary className="cursor-pointer select-none">Not using Gmail?</summary>
+              <div className="mt-3 grid gap-4 sm:grid-cols-[1fr_8rem]">
+                <Field label="SMTP server" htmlFor="smtp-host">
+                  <input id="smtp-host" value={hostValue} onChange={(e) => setHost(e.target.value)} className="input font-mono" />
+                </Field>
+                <Field label="Port" htmlFor="smtp-port">
+                  <input
+                    id="smtp-port"
+                    inputMode="numeric"
+                    value={portValue}
+                    onChange={(e) => setPort(e.target.value)}
+                    className="input font-mono"
+                  />
+                </Field>
+              </div>
+            </details>
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" variant="primary" loading={saving} disabled={!dirty}>
+                Save
+              </Button>
+              <Button type="button" loading={testing} disabled={!data?.configured || dirty} onClick={() => void sendTest()}>
+                Send test email
               </Button>
             </div>
           </form>

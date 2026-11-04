@@ -7,6 +7,7 @@ from collections.abc import Callable
 from sqlalchemy import exists, select
 from sqlalchemy.exc import IntegrityError
 
+from app.engine import next_post
 from app.engine.matcher import matches_keywords
 from app.engine.runner import (
     TERMINAL,
@@ -92,6 +93,8 @@ async def handle_event(ctx: EngineContext, event: InstagramEvent) -> None:
 
 
 def comment_automation_matches(trigger: CommentTrigger, event: CommentEvent) -> bool:
+    if trigger.waiting_for_post:
+        return False  # not linked to its post yet; it must never fire on older posts
     if trigger.media_ids and event.media_id not in trigger.media_ids:
         return False
     if trigger.top_level_only and event.parent_id:
@@ -125,6 +128,7 @@ async def handle_comment(ctx: EngineContext, event: CommentEvent) -> None:
     except IntegrityError:
         return  # raced with a duplicate delivery
 
+    await next_post.link_from_comment(ctx, event.media_id)
     for automation in await _active_automations(ctx, "comment"):
         try:
             trigger = CommentTrigger.model_validate(automation.trigger)

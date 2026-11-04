@@ -158,6 +158,7 @@ export function TriggerCard({ trigger, onChange, accountId, issues, showErrors }
                   [
                     ['all', 'All posts & reels'],
                     ['specific', 'Specific posts'],
+                    ['next', 'My next post'],
                   ] as const
                 ).map(([value, label]) => (
                   <label key={value} className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
@@ -165,13 +166,35 @@ export function TriggerCard({ trigger, onChange, accountId, issues, showErrors }
                       type="radio"
                       name={`${id}-posts`}
                       checked={trigger.postsMode === value}
-                      onChange={() => onChange({ postsMode: value })}
+                      onChange={() =>
+                        onChange(
+                          value === 'next' && !trigger.next_post_word
+                            ? { postsMode: value, next_post_word: trigger.keywords[0] ?? '' }
+                            : { postsMode: value },
+                        )
+                      }
                       className="size-4 accent-indigo-600"
                     />
                     {label}
                   </label>
                 ))}
               </div>
+              {trigger.postsMode === 'next' && (
+                <Field
+                  label="Word in the caption"
+                  htmlFor={`${id}-next-word`}
+                  error={postsError}
+                  hint="Put this word in the scheduled post’s caption, e.g. “Comment CLONE”. When the post goes live, FlowDM links this automation to it within 2 minutes, even with your laptop off. Older posts are never touched."
+                >
+                  <input
+                    id={`${id}-next-word`}
+                    value={trigger.next_post_word}
+                    onChange={(e) => onChange({ next_post_word: e.target.value })}
+                    placeholder="e.g. CLONE"
+                    className={cn('input max-w-xs', postsError && 'input-error')}
+                  />
+                </Field>
+              )}
               {trigger.postsMode === 'specific' && (
                 <>
                   <MediaPicker

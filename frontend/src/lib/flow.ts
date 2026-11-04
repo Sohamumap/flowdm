@@ -198,7 +198,14 @@ export function triggerSummary(trigger: Trigger): string {
         ? 'Any comment'
         : `Comment ${trigger.match} ${trigger.keywords.length ? quoteList(trigger.keywords) : '(no keywords)'}`
     const n = trigger.media_ids.length
-    const where = n === 0 ? 'all posts' : n === 1 ? '1 post' : `${n} posts`
+    const where =
+      n === 0 && trigger.next_post_word
+        ? `waiting for the next post with '${trigger.next_post_word}'`
+        : n === 0
+          ? 'all posts'
+          : n === 1
+            ? '1 post'
+            : `${n} posts`
     return `${what} · ${where}`
   }
   return `DM ${trigger.match} ${trigger.keywords.length ? quoteList(trigger.keywords) : '(no keywords)'}`
@@ -211,8 +218,10 @@ export interface TriggerDraft {
   keywords: string[]
   commentMatch: CommentMatch
   dmMatch: DMMatch
-  postsMode: 'all' | 'specific'
+  postsMode: 'all' | 'specific' | 'next'
   media_ids: string[]
+  next_post_word: string
+  waiting_since: string | null
   public_replies: string[]
   once_per_user: boolean
   top_level_only: boolean
@@ -233,6 +242,8 @@ export function defaultTriggerDraft(type: TriggerType = 'comment'): TriggerDraft
     dmMatch: 'contains',
     postsMode: 'all',
     media_ids: [],
+    next_post_word: '',
+    waiting_since: null,
     public_replies: [],
     once_per_user: true,
     top_level_only: false,
@@ -246,8 +257,10 @@ export function triggerToDraft(trigger: Trigger): TriggerDraft {
       ...base,
       keywords: [...(trigger.keywords ?? [])],
       commentMatch: trigger.match,
-      postsMode: trigger.media_ids?.length ? 'specific' : 'all',
+      postsMode: trigger.media_ids?.length ? 'specific' : trigger.next_post_word ? 'next' : 'all',
       media_ids: [...(trigger.media_ids ?? [])],
+      next_post_word: trigger.next_post_word ?? '',
+      waiting_since: trigger.waiting_since ?? null,
       public_replies: [...(trigger.public_replies ?? [])],
       once_per_user: trigger.once_per_user ?? true,
       top_level_only: trigger.top_level_only ?? false,
@@ -264,6 +277,9 @@ export function draftToTrigger(d: TriggerDraft): Trigger {
       keywords: d.commentMatch === 'any' ? [] : keywords,
       match: d.commentMatch,
       media_ids: d.postsMode === 'specific' ? [...d.media_ids] : [],
+      next_post_word: d.postsMode === 'next' ? d.next_post_word.trim() : '',
+      // Sent back unchanged so editing a waiting automation keeps when the wait started
+      waiting_since: d.postsMode === 'next' ? d.waiting_since : null,
       public_replies: d.public_replies.map((r) => r.trim()).filter(Boolean),
       once_per_user: d.once_per_user,
       top_level_only: d.top_level_only,
@@ -422,6 +438,8 @@ export function validateDraft(d: EditorDraft): Issue[] {
       issues.push({ level: 'error', section: 'trigger', field: 'keywords', message: "Add at least one keyword, or choose 'Any comment'" })
     if (trigger.postsMode === 'specific' && trigger.media_ids.length === 0)
       issues.push({ level: 'error', section: 'trigger', field: 'posts', message: "Select at least one post, or choose 'All posts & reels'" })
+    if (trigger.postsMode === 'next' && !trigger.next_post_word.trim())
+      issues.push({ level: 'error', section: 'trigger', field: 'posts', message: 'Type the word your next post’s caption will contain' })
   } else if (keywords.length === 0) {
     issues.push({ level: 'error', section: 'trigger', field: 'keywords', message: 'Add at least one keyword' })
   }

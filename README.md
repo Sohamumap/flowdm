@@ -10,6 +10,14 @@ limits.
   gets a DM. Optionally the comment also gets a public reply, picked at random from your
   variants ("Sent you a DM! 📩"). You can match keywords by *contains*, *exact*, or *any
   comment*, limit it to specific posts, and DM each person only once.
+* **My next post**: set up the automation before a scheduled reel goes live. Instagram only
+  gives a post its id once it is live, so the automation waits with a caption word (e.g.
+  `CLONE` for a caption that says "Comment CLONE"). The server checks your newest posts every
+  2 minutes, and on the first comment, then links the automation to the matching post and
+  starts replying. Nothing has to stay open on your computer, and older posts are never touched.
+* **Email alerts**: an email when a DM fails, when a new post goes live while an automation is
+  waiting but its caption lacks the word, or when Instagram access can't be renewed. Set the
+  sending Gmail address and an app password under Settings; bursts are grouped into one email.
 * **Multi-step flows** built in a form-based editor:
   * messages with up to 3 buttons (go to another step, or open a link)
   * image cards

@@ -117,6 +117,9 @@ class InstagramClient:
             params["after"] = after
         return await self._request("GET", f"{self.ig_user_id}/media", params=params)
 
+    async def get_media(self, media_id: str) -> dict:
+        return await self._request("GET", media_id, params={"fields": MEDIA_FIELDS})
+
     async def subscribe_webhooks(self, fields: str = WEBHOOK_FIELDS) -> dict:
         return await self._request(
             "POST", f"{self.ig_user_id}/subscribed_apps", params={"subscribed_fields": fields}

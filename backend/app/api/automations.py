@@ -27,7 +27,7 @@ def _apply(automation: Automation, body: AutomationIn) -> None:
     automation.name = body.name.strip()
     automation.is_active = body.is_active
     automation.trigger_type = body.trigger.type
-    automation.trigger = body.trigger.model_dump()
+    automation.trigger = body.trigger.model_dump(mode="json")
     automation.flow = body.flow.model_dump()
 
 

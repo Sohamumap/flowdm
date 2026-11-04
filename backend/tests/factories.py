@@ -69,7 +69,7 @@ async def make_automation(
         name=body.name,
         is_active=True,
         trigger_type=body.trigger.type,
-        trigger=body.trigger.model_dump(),
+        trigger=body.trigger.model_dump(mode="json"),
         flow=body.flow.model_dump(),
     )
     session.add(automation)

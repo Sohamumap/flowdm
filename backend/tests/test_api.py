@@ -6,6 +6,7 @@ import httpx
 import pytest
 from sqlalchemy import select
 
+from app import alerts
 from app.jobs import queue, worker
 from app.main import app, ensure_admin
 from app.models import CommentEvent, Job, WebhookEvent
@@ -284,3 +285,52 @@ async def test_instagram_app_settings_from_dashboard(authed):
 async def test_settings_require_login(client):
     assert (await client.get("/api/settings/instagram")).status_code == 401
     assert (await client.put("/api/settings/instagram", json={})).status_code == 401
+
+
+async def test_email_settings_from_dashboard(authed, monkeypatch):
+    initial = (await authed.get("/api/settings/email")).json()
+    assert initial["configured"] is False
+    assert (initial["smtp_host"], initial["smtp_port"]) == ("smtp.gmail.com", 587)
+    not_ready = await authed.post("/api/settings/email/test")
+    assert not_ready.status_code == 400
+
+    bad = await authed.put("/api/settings/email", json={"smtp_username": "not-an-email"})
+    assert bad.status_code == 422
+
+    saved = await authed.put(
+        "/api/settings/email",
+        json={"smtp_username": "me@gmail.com", "smtp_password": "abcd efgh ijkl mnop"},
+    )
+    out = saved.json()
+    assert out["configured"] is True
+    assert out["alert_email_to"] == "me@gmail.com"  # defaults to the sending address
+    assert "smtp_password" not in out and out["smtp_password_set"] is True
+
+    sent = []
+
+    async def fake_send(config, subject, body):
+        sent.append((config.password, config.to, subject))
+
+    monkeypatch.setattr(alerts, "send_email", fake_send)
+    tested = await authed.post("/api/settings/email/test")
+    assert tested.json() == {"sent_to": "me@gmail.com"}
+    assert sent == [("abcdefghijklmnop", "me@gmail.com", "Test email")]
+
+
+async def test_automation_waiting_for_next_post(authed, account):
+    body = {
+        "account_id": account.id,
+        "name": "Replica",
+        "is_active": True,
+        "trigger": comment_trigger(keywords=["clone"], next_post_word=" clone "),
+        "flow": FOLLOW_GATE_FLOW,
+    }
+    created = (await authed.post("/api/automations", json=body)).json()
+    trigger = created["trigger"]
+    assert trigger["next_post_word"] == "clone"
+    assert trigger["waiting_since"]
+
+    # Saving again from the editor (which sends waiting_since back) keeps the start time
+    body["trigger"] = trigger
+    updated = (await authed.put(f"/api/automations/{created['id']}", json=body)).json()
+    assert updated["trigger"]["waiting_since"] == trigger["waiting_since"]

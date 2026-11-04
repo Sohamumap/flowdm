@@ -20,6 +20,7 @@ import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import alerts
 from app.instagram.client import InstagramAPIError
 from app.jobs.queue import enqueue
 from app.models import Automation, CommentEvent, Contact, FlowRun, IGAccount, Message
@@ -51,6 +52,8 @@ class MessagingClient(Protocol):
     async def send_message(self, recipient: dict[str, str], message: dict[str, Any]) -> dict: ...
     async def reply_to_comment(self, comment_id: str, text: str) -> dict: ...
     async def get_user_profile(self, igsid: str) -> dict: ...
+    async def get_media(self, media_id: str) -> dict: ...
+    async def list_media(self, limit: int = 24, after: str | None = None) -> dict: ...
 
 
 @dataclass
@@ -331,6 +334,12 @@ async def _retry_later(ctx: EngineContext, run: FlowRun, step_id: str, error: st
 
 async def advance(ctx: EngineContext, run: FlowRun, contact: Contact, step_id: str | None) -> None:
     """Run steps from `step_id` until the flow ends or has to wait for something."""
+    await _advance(ctx, run, contact, step_id)
+    if run.status == "failed":
+        await alerts.run_failed(ctx.session, run)
+
+
+async def _advance(ctx: EngineContext, run: FlowRun, contact: Contact, step_id: str | None) -> None:
     automation, flow = await load_flow(ctx, run)
     if automation is None or flow is None:
         run.status, run.error = "failed", "Automation was deleted or is invalid"
