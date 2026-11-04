@@ -497,7 +497,7 @@ function InstagramAppCard({ onSaved }: { onSaved: () => void }) {
               <input
                 id="ig-app-secret"
                 type="password"
-                autoComplete="off"
+                autoComplete="new-password"
                 placeholder={data?.instagram_app_secret_set ? '••••••••••••' : ''}
                 value={appSecret}
                 onChange={(e) => setAppSecret(e.target.value)}
@@ -513,7 +513,7 @@ function InstagramAppCard({ onSaved }: { onSaved: () => void }) {
               <input
                 id="meta-app-secret"
                 type="password"
-                autoComplete="off"
+                autoComplete="new-password"
                 placeholder={data?.meta_app_secret_set ? '••••••••••••' : ''}
                 value={metaSecret}
                 onChange={(e) => setMetaSecret(e.target.value)}
@@ -641,7 +641,7 @@ function EmailAlertsCard() {
               <input
                 id="smtp-password"
                 type="password"
-                autoComplete="off"
+                autoComplete="new-password"
                 placeholder={data?.smtp_password_set ? '••••••••••••' : ''}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
